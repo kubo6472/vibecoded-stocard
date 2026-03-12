@@ -618,6 +618,49 @@
       </div>
     </div>
     <div class="settings-section">
+      <h3>Cloud sync</h3>
+      <div class="settings-item" onclick="configureSync()">
+        <div class="settings-item-left">
+          <div class="settings-item-icon">☁️</div>
+          <div class="settings-item-text">
+            <h4>Configure Cloudflare sync</h4>
+            <p id="sync-status">Not configured</p>
+          </div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7070a0" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="settings-item" onclick="pushToCloud()">
+        <div class="settings-item-left">
+          <div class="settings-item-icon">⬆️</div>
+          <div class="settings-item-text">
+            <h4>Push now</h4>
+            <p>Upload this device snapshot</p>
+          </div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7070a0" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="settings-item" onclick="pullFromCloud()">
+        <div class="settings-item-left">
+          <div class="settings-item-icon">⬇️</div>
+          <div class="settings-item-text">
+            <h4>Pull now</h4>
+            <p>Download latest cloud snapshot</p>
+          </div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7070a0" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="settings-item" onclick="toggleAutoSync()">
+        <div class="settings-item-left">
+          <div class="settings-item-icon">🔄</div>
+          <div class="settings-item-text">
+            <h4>Auto sync on changes</h4>
+            <p>Push after local edits</p>
+          </div>
+        </div>
+        <button class="toggle-switch" id="autosync-toggle"></button>
+      </div>
+    </div>
+    <div class="settings-section">
       <h3>About</h3>
       <div class="settings-item" style="cursor:default">
         <div class="settings-item-left">
@@ -781,13 +824,47 @@
 //  DATA LAYER — localStorage
 // ============================================================
 const STORE_KEY = 'cardex_v1';
+const SYNC_KEY = 'cardex_sync_v1';
 
 function loadCards() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
   catch { return []; }
 }
-function saveCards(cards) {
+function saveCards(cards, opts = {}) {
   localStorage.setItem(STORE_KEY, JSON.stringify(cards));
+  if (opts.remote) return;
+  syncState.localUpdatedAt = new Date().toISOString();
+  saveSyncState();
+  scheduleAutoSync();
+}
+
+function makeDeviceId() {
+  return 'dev-' + Math.random().toString(36).slice(2, 10);
+}
+
+let syncState = {
+  endpoint: '',
+  userId: '',
+  token: '',
+  deviceId: makeDeviceId(),
+  autoSync: false,
+  localUpdatedAt: null,
+  cloudUpdatedAt: null,
+};
+
+try { Object.assign(syncState, JSON.parse(localStorage.getItem(SYNC_KEY)) || {}); } catch {}
+if (!syncState.deviceId) syncState.deviceId = makeDeviceId();
+
+function saveSyncState() {
+  localStorage.setItem(SYNC_KEY, JSON.stringify(syncState));
+  renderSyncState();
+}
+
+function renderSyncState() {
+  const status = document.getElementById('sync-status');
+  const toggle = document.getElementById('autosync-toggle');
+  if (status) status.textContent = syncState.endpoint && syncState.userId ? `Ready (${syncState.userId})` : 'Not configured';
+  if (toggle) toggle.classList.toggle('on', !!syncState.autoSync);
 }
 
 let cards = loadCards();
@@ -1208,6 +1285,102 @@ function clearAllCards() {
 }
 
 // ============================================================
+//  CLOUD SYNC (Cloudflare Worker-friendly)
+// ============================================================
+let autoSyncTimer;
+
+function requireSyncConfig() {
+  if (!syncState.endpoint || !syncState.userId || !syncState.token) {
+    showToast('Configure Cloud sync first');
+    return false;
+  }
+  return true;
+}
+
+function scheduleAutoSync() {
+  if (!syncState.autoSync || !syncState.endpoint || !syncState.userId || !syncState.token) return;
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(() => pushToCloud(true), 800);
+}
+
+function configureSync() {
+  const endpoint = prompt('Worker base URL (e.g. https://cardex-sync.example.workers.dev)', syncState.endpoint || '');
+  if (endpoint === null) return;
+  const userId = prompt('Vault / user id (shared across your devices)', syncState.userId || '');
+  if (userId === null) return;
+  const token = prompt('Sync token (must match Worker secret)', syncState.token || '');
+  if (token === null) return;
+
+  syncState.endpoint = endpoint.trim().replace(/\/$/, '');
+  syncState.userId = userId.trim();
+  syncState.token = token.trim();
+  saveSyncState();
+  showToast(syncState.endpoint && syncState.userId ? 'Cloud sync configured' : 'Cloud sync cleared');
+}
+
+function toggleAutoSync() {
+  syncState.autoSync = !syncState.autoSync;
+  saveSyncState();
+  showToast(syncState.autoSync ? 'Auto sync enabled' : 'Auto sync disabled');
+}
+
+async function pushToCloud(silent = false) {
+  if (!requireSyncConfig()) return;
+  try {
+    const payload = {
+      cards,
+      updatedAt: syncState.localUpdatedAt || new Date().toISOString(),
+      deviceId: syncState.deviceId,
+    };
+    const res = await fetch(`${syncState.endpoint}/sync/${encodeURIComponent(syncState.userId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-sync-token': syncState.token },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    syncState.cloudUpdatedAt = data.updatedAt || payload.updatedAt;
+    saveSyncState();
+    if (!silent) showToast('Cloud sync complete');
+  } catch (err) {
+    console.error(err);
+    showToast('Cloud push failed');
+  }
+}
+
+async function pullFromCloud() {
+  if (!requireSyncConfig()) return;
+  try {
+    const res = await fetch(`${syncState.endpoint}/sync/${encodeURIComponent(syncState.userId)}`, {
+      headers: { 'x-sync-token': syncState.token },
+    });
+    if (res.status === 404) {
+      showToast('No cloud snapshot yet');
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data.cards)) throw new Error('Invalid payload');
+
+    const localTs = Date.parse(syncState.localUpdatedAt || 0);
+    const cloudTs = Date.parse(data.updatedAt || 0);
+    if (localTs > cloudTs && cards.length && !confirm('Local data looks newer than cloud. Overwrite local anyway?')) return;
+
+    cards = data.cards.filter(c => c && c.id && c.name && c.number);
+    saveCards(cards, { remote: true });
+    renderCards();
+
+    syncState.cloudUpdatedAt = data.updatedAt || null;
+    syncState.localUpdatedAt = data.updatedAt || new Date().toISOString();
+    saveSyncState();
+    showToast('Pulled from cloud');
+  } catch (err) {
+    console.error(err);
+    showToast('Cloud pull failed');
+  }
+}
+
+// ============================================================
 //  TOAST
 // ============================================================
 let toastTimer;
@@ -1269,6 +1442,7 @@ if ('serviceWorker' in navigator) {
 buildEmojiPicker();
 buildColorPicker();
 renderCards();
+renderSyncState();
 
 // Seed demo cards if empty
 if (cards.length === 0) {
