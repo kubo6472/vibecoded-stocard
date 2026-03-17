@@ -441,12 +441,15 @@ async function verifyCoseSignature(coseKey, data, signature) {
 // ════════════════════════════════════════════════════════════════
 
 function getRpId(request) {
-  return new URL(request.url).hostname;
+  return 'cardex.tjm.sk'; // ← your Pages hostname
 }
 
 function verifyOrigin(origin, request) {
-  const expected = new URL(request.url).origin;
-  return origin === expected;
+  const allowed = [
+    'https://cardex.tjm.sk',
+    'http://localhost:8787',  // for local wrangler dev
+  ];
+  return allowed.includes(origin);
 }
 
 async function getAndDeleteChallenge(env, token) {
