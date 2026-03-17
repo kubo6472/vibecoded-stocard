@@ -5,13 +5,13 @@ compatibility_flags   = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "CARDEX_KV"
-id      = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+id      = "c10dfc1b686d4d95a207bc18f5f96573"
 
 [vars]
-FRONTEND_ORIGIN  = "https://vibecoded-stocard.pages.dev"
-FRONTEND_RP_ID   = "vibecoded-stocard.pages.dev"
-EMAIL_FROM       = "noreply@yourdomain.com"
-EMAIL_FROM_NAME  = "Cardex"
+FRONTEND_ORIGIN  = "https://cardex.tjm.sk"
+FRONTEND_RP_ID   = "cardex.tjm.sk"
+EMAIL_FROM       = "cardex@tjm.sk"
+EMAIL_FROM_NAME  = "Cardex Team"
 
 # Secrets — set via CLI, never commit values:
 #   wrangler secret put JWT_SECRET
