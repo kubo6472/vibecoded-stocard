@@ -1,7 +1,7 @@
 import type { Card, Tombstone, AuthResponse } from './types.js';
 
 // ⚠️  Set this to your deployed Worker URL
-export const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8787';
+export const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8787').replace(/\/$/, '');
 
 let _token: string | null = null;
 

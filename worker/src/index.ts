@@ -8,42 +8,57 @@ import { getUser }                   from './lib/kv.js';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const requestOrigin = request.headers.get('Origin') ?? undefined;
+    const cors          = corsHeaders(env, requestOrigin);
+
     // CORS preflight
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders(env) });
+      return new Response(null, { status: 204, headers: cors });
     }
 
     const { pathname } = new URL(request.url);
 
+    let response: Response;
+
     try {
       // ── Auth — passkey ──────────────────────────────────────────────────────
-      if (pathname === '/auth/register/begin'  && request.method === 'POST') return registerBegin(request, env);
-      if (pathname === '/auth/register/finish' && request.method === 'POST') return registerFinish(request, env);
-      if (pathname === '/auth/login/begin'     && request.method === 'POST') return loginBegin(request, env);
-      if (pathname === '/auth/login/finish'    && request.method === 'POST') return loginFinish(request, env);
+      if (pathname === '/auth/register/begin'  && request.method === 'POST') response = await registerBegin(request, env);
+      else if (pathname === '/auth/register/finish' && request.method === 'POST') response = await registerFinish(request, env);
+      else if (pathname === '/auth/login/begin'     && request.method === 'POST') response = await loginBegin(request, env);
+      else if (pathname === '/auth/login/finish'    && request.method === 'POST') response = await loginFinish(request, env);
 
       // ── Auth — magic link ───────────────────────────────────────────────────
-      if (pathname === '/auth/magic/send'   && request.method === 'POST') return magicSend(request, env);
-      if (pathname === '/auth/magic/verify' && request.method === 'POST') return magicVerify(request, env);
+      else if (pathname === '/auth/magic/send'   && request.method === 'POST') response = await magicSend(request, env);
+      else if (pathname === '/auth/magic/verify' && request.method === 'POST') response = await magicVerify(request, env);
 
       // ── Session ─────────────────────────────────────────────────────────────
-      if (pathname === '/auth/me' && request.method === 'GET') {
+      else if (pathname === '/auth/me' && request.method === 'GET') {
         const { userId, error } = await verifyToken(request, env);
-        if (error || !userId) return jsonResponse({ error: error ?? 'Unauthorized' }, 401, env);
-        const user = await getUser(env, userId);
-        if (!user) return jsonResponse({ error: 'User not found' }, 404, env);
-        return jsonResponse(user, 200, env);
+        if (error || !userId) response = jsonResponse({ error: error ?? 'Unauthorized' }, 401, env);
+        else {
+          const user = await getUser(env, userId);
+          response = user
+            ? jsonResponse(user, 200, env)
+            : jsonResponse({ error: 'User not found' }, 404, env);
+        }
       }
 
       // ── Cards ────────────────────────────────────────────────────────────────
-      if (pathname === '/cards' && request.method === 'GET')  return getCards(request, env);
-      if (pathname === '/cards' && request.method === 'POST') return setCards(request, env);
+      else if (pathname === '/cards' && request.method === 'GET')  response = await getCards(request, env);
+      else if (pathname === '/cards' && request.method === 'POST') response = await setCards(request, env);
 
-      return jsonResponse({ error: 'Not found' }, 404, env);
+      else response = jsonResponse({ error: 'Not found' }, 404, env);
+
     } catch (err) {
       console.error(err);
       const detail = err instanceof Error ? err.message : String(err);
-      return jsonResponse({ error: 'Internal error', detail }, 500, env);
+      response = jsonResponse({ error: 'Internal error', detail }, 500, env);
     }
+
+    // Stamp CORS headers onto every response — single place, covers all handlers.
+    const patched = new Response(response.body, response);
+    Object.entries(cors).forEach(([k, v]) => patched.headers.set(k, v));
+    return patched;
   },
 };
+

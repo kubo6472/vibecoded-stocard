@@ -19,8 +19,11 @@ export async function magicSend(request: Request, env: Env): Promise<Response> {
 
   await putMagicLink(env, token, { userId, email, expires: Date.now() + MAGIC_TTL_MS });
 
-  const origin   = env.FRONTEND_ORIGIN || 'https://vibecoded-stocard.pages.dev';
-  const magicUrl = `${origin}/?magic=${token}`;
+  // Use the request's Origin so the magic link points back to whichever
+  // frontend made the request — works for staging preview URLs too.
+  const requestOrigin = request.headers.get('Origin');
+  const origin        = requestOrigin || env.FRONTEND_ORIGIN || 'https://vibecoded-stocard.pages.dev';
+  const magicUrl      = `${origin}/?magic=${token}`;
 
   const result = await sendBrevoEmail({
     apiKey:    env.BREVO_API_KEY,
