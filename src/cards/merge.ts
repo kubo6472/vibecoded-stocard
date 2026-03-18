@@ -1,17 +1,18 @@
 import type { Card, Tombstone } from '../types.js';
 
 /**
- * Merge local and remote state, respecting tombstones from both sides.
+ * Merge local and remote state, respecting tombstones and updatedAt timestamps.
  *
  * Rules:
- *  1. Build a unified tombstone set from local + remote.
- *  2. Any card whose id appears in the tombstone set is excluded,
- *     regardless of which side has it — deletions always win.
- *  3. For cards that survive: remote wins if it exists, otherwise keep local
- *     (preserves offline additions).
- *  4. Return the merged card list and the unified tombstone list separately
- *     so the caller can push both back to the server.
+ *  1. Unify tombstone sets — a deletion always wins over any card version,
+ *     regardless of timestamps.
+ *  2. For cards that survive: Last-Write-Wins per card id, using `updatedAt`.
+ *     This means whichever device edited a card most recently wins — making
+ *     family/shared sync safe across multiple accounts writing to the same data.
+ *  3. Cards that exist on only one side are kept as-is (offline additions
+ *     from either device are preserved).
  */
+
 export interface MergeResult {
   cards:      Card[];
   tombstones: Tombstone[];
@@ -23,7 +24,8 @@ export function mergeCards(
   localTombstones:  Tombstone[],
   remoteTombstones: Tombstone[],
 ): MergeResult {
-  // 1. Unify tombstones — keep the earliest deletedAt per id
+  // ── Step 1: unify tombstones ───────────────────────────────────────────────
+  // Keep earliest deletedAt per id (first deletion wins, prevents re-deletion races)
   const tombstoneMap = new Map<string, Tombstone>();
   for (const t of [...remoteTombstones, ...localTombstones]) {
     const existing = tombstoneMap.get(t.id);
@@ -32,14 +34,30 @@ export function mergeCards(
     }
   }
   const tombstones = Array.from(tombstoneMap.values());
-  const deletedIds = tombstoneMap;
+  const deletedIds = tombstoneMap; // same map used as a Set for O(1) lookup
 
-  // 2. Build card map — remote wins for existing ids, local fills in additions
+  // ── Step 2: LWW merge by updatedAt ─────────────────────────────────────────
   const cardMap = new Map<string, Card>();
-  for (const card of remoteCards) cardMap.set(card.id, card);
-  for (const card of localCards)  if (!cardMap.has(card.id)) cardMap.set(card.id, card);
 
-  // 3. Exclude any card that has been tombstoned
+  // Seed with remote
+  for (const card of remoteCards) {
+    cardMap.set(card.id, card);
+  }
+
+  // Apply local — win if local is newer or remote doesn't have this card
+  for (const card of localCards) {
+    const remote = cardMap.get(card.id);
+    if (!remote) {
+      // Local-only addition — keep it
+      cardMap.set(card.id, card);
+    } else if (card.updatedAt > remote.updatedAt) {
+      // Local edit is more recent — prefer it
+      cardMap.set(card.id, card);
+    }
+    // else: remote is newer or equal — already in map, no-op
+  }
+
+  // ── Step 3: filter out tombstoned cards ────────────────────────────────────
   const cards = Array.from(cardMap.values()).filter(c => !deletedIds.has(c.id));
 
   return { cards, tombstones };

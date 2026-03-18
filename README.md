@@ -132,8 +132,8 @@ Or push to `master` — GitHub Actions (`deploy.yml`) handles both automatically
 
 ## Roadmap
 
-- [ ] **Camera barcode scanning** — `src/scanner/scanner.ts` is stubbed, ready for `BarcodeDetector` implementation
-- [ ] **Family / shared sync** — update `src/cards/merge.ts` with `updatedAt` conflict resolution
+- [x] **Camera barcode scanning** — `src/scanner/scanner.ts` is stubbed, ready for `BarcodeDetector` implementation
+- [x] **Family / shared sync** — update `src/cards/merge.ts` with `updatedAt` conflict resolution
 - [ ] **PWA install prompt** — Vite PWA plugin already configured, just needs an install button wired in `main.ts`
 - [ ] **Multi-device passkey management** — list + revoke credentials via new Worker endpoints
 

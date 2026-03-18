@@ -3,6 +3,7 @@ import { getCards, addCard, updateCard, removeCard, makeCard, touchCard } from '
 import { pushToRemote }                from '../cards/sync.js';
 import { renderBarcode, renderQR }     from './barcode.js';
 import { showToast }                   from './toast.js';
+import { isSupported, startScan }      from '../scanner/scanner.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -169,7 +170,76 @@ export function openAddSheet(prefill?: Card): void {
   if (preview) preview.innerHTML = '<p class="preview-error">Enter a card number above</p>';
   if (prefill?.number) setTimeout(updateFormPreview, 50);
 
+  // Inject scan button next to the number field (only if not already there)
+  injectScanButton();
+
   openSheet('add-overlay');
+}
+
+async function injectScanButton(): Promise<void> {
+  if (document.getElementById('scan-btn')) return; // already present
+
+  const supported = await isSupported();
+  if (!supported) return;
+
+  const input = document.getElementById('f-number') as HTMLInputElement | null;
+  if (!input) return;
+
+  // Wrap input + button in a flex row
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display:flex;gap:8px;align-items:center';
+
+  input.parentNode!.insertBefore(wrapper, input);
+  wrapper.appendChild(input);
+
+  const btn = document.createElement('button');
+  btn.id = 'scan-btn';
+  btn.type = 'button';
+  btn.setAttribute('aria-label', 'Scan barcode with camera');
+  btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+    <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+    <line x1="7" y1="12" x2="7" y2="12.01"/><line x1="12" y1="7" x2="12" y2="17"/>
+    <line x1="17" y1="12" x2="17" y2="12.01"/>
+  </svg>`;
+  btn.style.cssText = [
+    'flex-shrink:0',
+    'width:46px', 'height:46px',
+    'border-radius:10px',
+    'border:1px solid rgba(255,255,255,0.07)',
+    'background:#1c1c27',
+    'color:#7070a0',
+    'cursor:pointer',
+    'display:flex', 'align-items:center', 'justify-content:center',
+    'transition:background 0.15s,color 0.15s',
+    '-webkit-tap-highlight-color:transparent',
+  ].join(';');
+
+  btn.addEventListener('click', handleScan);
+  wrapper.appendChild(btn);
+}
+
+async function handleScan(): Promise<void> {
+  const btn = document.getElementById('scan-btn') as HTMLButtonElement | null;
+  if (btn) { btn.style.color = '#7c6dfa'; btn.disabled = true; }
+
+  try {
+    const result = await startScan();
+
+    setValue('f-number', result.value);
+
+    // Auto-select matching format if we can map it
+    const formatEl = document.getElementById('f-format') as HTMLSelectElement | null;
+    if (formatEl && result.format) formatEl.value = result.format;
+
+    updateFormPreview();
+    showToast('Barcode scanned ✓');
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return; // user cancelled
+    showToast('Camera unavailable');
+  } finally {
+    if (btn) { btn.style.color = ''; btn.disabled = false; }
+  }
 }
 
 export function openEditSheet(): void {
