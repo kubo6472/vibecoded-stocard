@@ -311,7 +311,7 @@ html, body {
 
 .fab {
   position: fixed;
-  bottom: calc(80px + env(safe-area-inset-bottom));
+  bottom: calc(24px + env(safe-area-inset-bottom));
   right: var(--gutter);
   width: 58px; height: 58px; border-radius: 50%; border: none;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -322,31 +322,6 @@ html, body {
   -webkit-tap-highlight-color: transparent; z-index: 20;
 }
 .fab:active { transform: scale(0.92); }
-
-/* ── Bottom nav ────────────────────────────────────────────── */
-
-.bottom-nav {
-  position: fixed; bottom: 0; left: 0;
-  width: 100%;
-  background: rgba(13,13,20,0.92);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--border);
-  display: flex;
-  padding: 0 var(--gutter) env(safe-area-inset-bottom);
-  z-index: 15;
-}
-
-.nav-tab {
-  /* On mobile: stretch equally. On desktop: fixed-width tabs, left-aligned. */
-  flex: 1 1 0;
-  max-width: 80px;       /* prevents tabs from becoming comically wide on desktop */
-  padding: 12px 8px 10px;
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  cursor: pointer; color: var(--muted); font-size: 10px; font-weight: 500;
-  -webkit-tap-highlight-color: transparent; transition: color 0.15s;
-}
-.nav-tab svg    { width: 22px; height: 22px; }
-.nav-tab.active { color: var(--accent); }
 
 /* ── Overlays & sheets ─────────────────────────────────────── */
 

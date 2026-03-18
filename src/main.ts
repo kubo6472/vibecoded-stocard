@@ -103,19 +103,15 @@ function wire(): void {
     showAuthScreen();
     showPanel('login');
   });
-  on('manual-sync-btn', 'click', async () => {
-    await syncOnOpen();
-    showToast('Sync complete ✓');
-    closeSheet('account-overlay');
-  });
-  on('manual-sync-settings', 'click', async () => {
-    await syncOnOpen();
-    showToast('Sync complete ✓');
+
+  // Settings button — toggles between settings and home
+  on('settings-btn', 'click', () => {
+    const settingsPage = document.getElementById('page-settings');
+    const isActive = settingsPage?.classList.contains('active');
+    showPage(isActive ? 'home' : 'settings');
   });
 
-  // Nav
-  on('nav-home',     'click', () => showPage('home'));
-  on('nav-settings', 'click', () => showPage('settings'));
+  // Search
   on('search-btn',   'click', () => toggleSearch());
   on('search-input', 'input', () => renderCards());
 

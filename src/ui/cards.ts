@@ -367,8 +367,15 @@ export function closeOnBackdrop(e: MouseEvent, id: string): void {
 export function showPage(page: string): void {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(`page-${page}`)?.classList.add('active');
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById(`nav-${page}`)?.classList.add('active');
+
+  // Highlight the settings button when on the settings page
+  const settingsBtn = document.getElementById('settings-btn');
+  if (settingsBtn) {
+    settingsBtn.style.color  = page === 'settings' ? 'var(--accent)' : '';
+    settingsBtn.style.background = page === 'settings' ? 'var(--surface)' : '';
+  }
+
+  // FAB only makes sense on the home/cards page
   const fab = document.querySelector<HTMLElement>('.fab');
   if (fab) fab.style.display = page === 'home' ? 'flex' : 'none';
 }
