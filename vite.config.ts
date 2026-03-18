@@ -1,7 +1,13 @@
 import { defineConfig } from 'vite';
 import { VitePWA }      from 'vite-plugin-pwa';
+import pkg              from './package.json';
 
 export default defineConfig({
+  define: {
+    // Makes __APP_VERSION__ available as a typed string at build time.
+    // Usage in TS: declare const __APP_VERSION__: string;  (already in globals.d.ts)
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',

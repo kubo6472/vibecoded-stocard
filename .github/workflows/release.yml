@@ -1,0 +1,68 @@
+name: Release to Production
+
+on:
+  push:
+    tags:
+      - 'v*'   # triggers on v2.1.0, v2.2.0, etc.
+
+jobs:
+  deploy-worker-production:
+    runs-on: ubuntu-latest
+    name: Deploy Worker (production)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install worker deps
+        working-directory: worker
+        run: npm install
+
+      - name: Type-check worker
+        working-directory: worker
+        run: npm run type-check
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken:         ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId:        ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command:          deploy   # default env = production
+
+  deploy-frontend-production:
+    runs-on: ubuntu-latest
+    name: Deploy Frontend (production)
+    needs: deploy-worker-production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend deps
+        run: npm install
+
+      - name: Type-check frontend
+        run: npm run type-check
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Deploy to Cloudflare Pages (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command:   pages deploy dist --project-name=vibecoded-stocard
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Tag name becomes the release title (e.g. "v2.1.0")
+          generate_release_notes: true

@@ -3,10 +3,12 @@ main                  = "src/index.ts"
 compatibility_date    = "2024-01-01"
 compatibility_flags   = ["nodejs_compat"]
 
+# ── Production KV ─────────────────────────────────────────────
 [[kv_namespaces]]
 binding = "CARDEX_KV"
 id      = "c10dfc1b686d4d95a207bc18f5f96573"
 
+# ── Production vars ────────────────────────────────────────────
 [vars]
 FRONTEND_ORIGIN  = "https://cardex.tjm.sk"
 FRONTEND_RP_ID   = "cardex.tjm.sk"
@@ -17,5 +19,23 @@ EMAIL_FROM_NAME  = "Cardex Team"
 #   wrangler secret put JWT_SECRET
 #   wrangler secret put BREVO_API_KEY
 
+# ── Staging environment ────────────────────────────────────────
+# Deploy with: wrangler deploy --env staging
+# Secrets:     wrangler secret put JWT_SECRET --env staging
+#              wrangler secret put BREVO_API_KEY --env staging
+[env.staging]
+name = "cardex-api-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "CARDEX_KV"
+id      = "29f06f6ce72b4c61b0223da13dda1346"
+
+[env.staging.vars]
+FRONTEND_ORIGIN  = "https://cardex-staging.pages.dev"
+FRONTEND_RP_ID   = "cardex-staging.pages.dev"
+EMAIL_FROM       = "cardex@tjm.sk"
+EMAIL_FROM_NAME  = "Cardex Staging"
+
+# ── Local dev ──────────────────────────────────────────────────
 [dev]
 port = 8787

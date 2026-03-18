@@ -1,0 +1,67 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '.github/**'
+      - '*.md'
+
+jobs:
+  deploy-worker-staging:
+    runs-on: ubuntu-latest
+    name: Deploy Worker (staging)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install worker deps
+        working-directory: worker
+        run: npm install
+
+      - name: Type-check worker
+        working-directory: worker
+        run: npm run type-check
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken:         ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId:        ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          # Deploys to a staging environment defined in wrangler.toml
+          command:          deploy --env staging
+
+  deploy-frontend-staging:
+    runs-on: ubuntu-latest
+    name: Deploy Frontend (staging)
+    needs: deploy-worker-staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend deps
+        run: npm install
+
+      - name: Type-check frontend
+        run: npm run type-check
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL_STAGING }}
+
+      - name: Deploy to Cloudflare Pages (staging)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Deploys to the staging Pages project (separate from production)
+          command:   pages deploy dist --project-name=cardex-staging

@@ -28,3 +28,6 @@ declare class QRCode {
   );
   static CorrectLevel: { L: 1; M: 0; Q: 3; H: 2 };
 }
+
+/** Injected by Vite at build time from package.json version field. */
+declare const __APP_VERSION__: string;

@@ -52,6 +52,9 @@ async function bootMainApp(): Promise<void> {
   setText('account-avatar',   initials);
   setText('account-name',     session.username);
 
+  // Stamp the version into the About row
+  setText('app-version', `v${__APP_VERSION__}`);
+
   document.getElementById('auth-screen')!.style.display    = 'none';
   document.getElementById('magic-verifying')!.style.display = 'none';
   document.getElementById('main-app')!.style.display        = 'flex';
