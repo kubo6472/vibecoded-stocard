@@ -228,14 +228,23 @@ async function handleScan(): Promise<void> {
 
     setValue('f-number', result.value);
 
-    // Auto-select matching format if we can map it
     const formatEl = document.getElementById('f-format') as HTMLSelectElement | null;
     if (formatEl && result.format) formatEl.value = result.format;
 
     updateFormPreview();
     showToast('Barcode scanned ✓');
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') return; // user cancelled
+    if (err instanceof DOMException) {
+      if (err.name === 'AbortError') return; // user tapped cancel — silent
+      if (err.name === 'NotAllowedError') {
+        showToast('Camera permission denied — enable it in browser settings');
+        return;
+      }
+      if (err.name === 'NotFoundError') {
+        showToast('No camera found on this device');
+        return;
+      }
+    }
     showToast('Camera unavailable');
   } finally {
     if (btn) { btn.style.color = ''; btn.disabled = false; }

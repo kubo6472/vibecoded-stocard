@@ -39,15 +39,33 @@ export async function isSupported(): Promise<boolean> {
 
 /**
  * Open the camera overlay and scan.
- * Resolves with the first detected barcode value, or rejects if the user
- * cancels or the camera is unavailable.
+ *
+ * Camera permission is requested FIRST — before the overlay is shown.
+ * This means the browser prompt fires immediately when the user taps the
+ * scan button, which is the natural moment they expect to grant access.
+ *
+ * If permission is denied, rejects with a NotAllowedError without ever
+ * showing the overlay.
  */
-export function startScan(): Promise<ScanResult> {
+export async function startScan(): Promise<ScanResult> {
+  // 1. Acquire stream (triggers permission prompt) before touching the DOM
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 } },
+      audio: false,
+    });
+  } catch (err) {
+    // Re-throw as-is — NotAllowedError, NotFoundError, etc.
+    // The caller (handleScan) shows the appropriate toast.
+    throw err;
+  }
+
+  // 2. Permission granted — now build and show the overlay
   return new Promise((resolve, reject) => {
     const overlay = buildOverlay();
     document.body.appendChild(overlay);
 
-    let stream:    MediaStream | null     = null;
     let animFrame: number | null          = null;
     let detector:  BarcodeDetector | null = null;
     let done = false;
@@ -55,7 +73,7 @@ export function startScan(): Promise<ScanResult> {
     function cleanup() {
       done = true;
       if (animFrame !== null) cancelAnimationFrame(animFrame);
-      stream?.getTracks().forEach(t => t.stop());
+      stream.getTracks().forEach(t => t.stop());
       overlay.remove();
     }
 
@@ -69,11 +87,6 @@ export function startScan(): Promise<ScanResult> {
       try {
         const formats = await BarcodeDetector.getSupportedFormats();
         detector = new BarcodeDetector({ formats });
-
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 } },
-          audio: false,
-        });
 
         const video = overlay.querySelector<HTMLVideoElement>('#scanner-video')!;
         video.srcObject = stream;
