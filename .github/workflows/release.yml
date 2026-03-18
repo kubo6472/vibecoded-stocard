@@ -11,6 +11,13 @@ jobs:
     name: Deploy Worker (production)
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Fetch full history so we can resolve which branch the tag is on
+          fetch-depth: 0
+          # Check out master explicitly — tag pushes otherwise leave the
+          # repo in detached HEAD, which Cloudflare Pages sees as "HEAD"
+          # instead of "master" and fails the production branch check.
+          ref: master
 
       - uses: actions/setup-node@v4
         with:
@@ -38,6 +45,9 @@ jobs:
     needs: deploy-worker-production
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
 
       - uses: actions/setup-node@v4
         with:
@@ -59,10 +69,9 @@ jobs:
         with:
           apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command:   pages deploy dist --project-name=vibecoded-stocard
+          command:   pages deploy dist --project-name=vibecoded-stocard --branch=master
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          # Tag name becomes the release title (e.g. "v2.1.0")
           generate_release_notes: true
