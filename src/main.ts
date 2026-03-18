@@ -104,7 +104,8 @@ function wire(): void {
     showPanel('login');
   });
 
-  // Settings button — toggles between settings and home
+  // Logo — always goes home
+  on('logo', 'click', () => showPage('home'));
   on('settings-btn', 'click', () => {
     const settingsPage = document.getElementById('page-settings');
     const isActive = settingsPage?.classList.contains('active');
