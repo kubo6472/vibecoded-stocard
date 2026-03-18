@@ -2,10 +2,13 @@ import { fetchCards, pushCards }            from '../api.js';
 import { getCards, setCards, getTombstones, setTombstones } from './store.js';
 import { mergeCards }                       from './merge.js';
 import { setSyncState }                     from '../ui/toast.js';
+import { renderCards }                      from '../ui/cards.js';
 
 /**
  * Pull remote state, merge with local (tombstones included), push merged
- * state back. Called on login and on app open when a session exists.
+ * state back, then re-render the card grid.
+ *
+ * Called on login, on app open, and whenever the page becomes visible again.
  */
 export async function syncOnOpen(): Promise<void> {
   setSyncState('syncing', 'Syncing…');
@@ -22,6 +25,10 @@ export async function syncOnOpen(): Promise<void> {
 
     setCards(cards);
     setTombstones(tombstones);
+
+    // Re-render immediately so the UI reflects what we just pulled —
+    // without this the grid stays stale until the user does something.
+    renderCards();
 
     await pushToRemote();
     setSyncState('synced', 'Synced');

@@ -168,3 +168,29 @@ function setText(id: string, val: string): void {
 
 wire();
 init();
+
+// ── Background sync ───────────────────────────────────────────────────────────
+// Re-sync whenever the user switches back to the tab/app. This is the main
+// mechanism that makes "open on mobile and see desktop changes" work without
+// manually tapping Sync.
+
+let _lastSync = 0;
+const MIN_SYNC_INTERVAL_MS = 10_000; // don't hammer the API if user tab-switches rapidly
+
+function syncIfSession(): void {
+  const session = getSession();
+  if (!session) return;
+  const now = Date.now();
+  if (now - _lastSync < MIN_SYNC_INTERVAL_MS) return;
+  _lastSync = now;
+  syncOnOpen();
+}
+
+// Page becomes visible again (tab switch, app resume on mobile)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncIfSession();
+});
+
+// Device comes back online after being offline
+window.addEventListener('online', () => syncIfSession());
+
