@@ -6,9 +6,14 @@ import { renderCards }                      from '../ui/cards.js';
 
 /**
  * Pull remote state, merge with local (tombstones included), push merged
- * state back, then re-render the card grid.
+ * state back only if something actually changed, then re-render.
  *
- * Called on login, on app open, and whenever the page becomes visible again.
+ * Typical flow per sync:
+ *   1. GET /cards  — fetch remote cards + tombstones
+ *   2. POST /cards — push merged state back (skipped if nothing changed)
+ *
+ * The POST is skipped when the remote was already up to date, cutting the
+ * sync down to a single request in the common "open app, already in sync" case.
  */
 export async function syncOnOpen(): Promise<void> {
   setSyncState('syncing', 'Syncing…');
@@ -16,22 +21,30 @@ export async function syncOnOpen(): Promise<void> {
     const { cards: remoteCards, tombstones: remoteTombstones, error } = await fetchCards();
     if (error) throw new Error(error);
 
+    const localCards      = getCards();
+    const localTombstones = getTombstones();
+
     const { cards, tombstones } = mergeCards(
-      getCards(),
+      localCards,
       remoteCards      ?? [],
-      getTombstones(),
+      localTombstones,
       remoteTombstones ?? [],
     );
 
     setCards(cards);
     setTombstones(tombstones);
-
-    // Re-render immediately so the UI reflects what we just pulled —
-    // without this the grid stays stale until the user does something.
     renderCards();
 
-    await pushToRemote();
-    setSyncState('synced', 'Synced');
+    // Only push back if the merge actually produced a change.
+    // Compare by serialising — cheap enough for typical card counts.
+    const cardsChanged      = JSON.stringify(cards)      !== JSON.stringify(remoteCards ?? []);
+    const tombstonesChanged = JSON.stringify(tombstones) !== JSON.stringify(remoteTombstones ?? []);
+
+    if (cardsChanged || tombstonesChanged) {
+      await pushToRemote();
+    } else {
+      setSyncState('synced', 'Synced');
+    }
   } catch {
     setSyncState('error', 'Offline');
   }
