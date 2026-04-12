@@ -48,7 +48,7 @@ jobs:
           node-version: 20
 
       - name: Install frontend deps
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Type-check frontend
         run: npm run type-check
