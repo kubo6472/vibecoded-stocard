@@ -6,7 +6,7 @@ PWA loyalty card wallet with passkey/magic-link auth and Cloudflare KV sync. Two
 
 ### Project structure
 - **Frontend** (root): Vanilla TypeScript + Vite 8, PWA via `vite-plugin-pwa`. Dev server: `npm run dev` → `http://localhost:5173`
-- **Worker API** (`worker/`): Cloudflare Worker + Wrangler 3. Dev server: `cd worker && npm run dev` → `http://localhost:8787` (local KV emulated by Miniflare)
+- **Worker API** (`worker/`): Cloudflare Worker + Wrangler 4. Dev server: `cd worker && npm run dev` → `http://localhost:8787` (local KV emulated by Miniflare). Note: existing `wrangler.toml` and dev/deploy scripts are v4-compatible and require no changes.
 
 ### Local environment files (not committed)
 - `.env.local` at root — must contain `VITE_API_URL=http://localhost:8787`
