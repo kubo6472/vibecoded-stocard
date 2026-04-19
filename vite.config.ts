@@ -56,9 +56,13 @@ export default defineConfig({
     outDir:   'dist',
     rollupOptions: {
       output: {
-        manualChunks: {
-          auth:  ['./src/auth/passkey.ts', './src/auth/magic.ts', './src/auth/session.ts'],
-          cards: ['./src/cards/store.ts',  './src/cards/sync.ts', './src/cards/merge.ts'],
+        manualChunks: (id) => {
+          if (id.includes('src/auth/passkey.ts') || id.includes('src/auth/magic.ts') || id.includes('src/auth/session.ts')) {
+            return 'auth';
+          }
+          if (id.includes('src/cards/store.ts') || id.includes('src/cards/sync.ts') || id.includes('src/cards/merge.ts')) {
+            return 'cards';
+          }
         },
       },
     },
